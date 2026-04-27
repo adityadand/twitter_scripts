@@ -1,0 +1,35 @@
+// === X/Twitter Following Filter - Show only non-mutual follows ===
+(() => {
+  console.log('%c✅ Non-mutual filter activated! Only people you follow (who don’t follow back) will show.', 'color: #1d9bf0; font-weight: bold');
+
+  const filterNonMutual = () => {
+    document.querySelectorAll('[data-testid="UserCell"]').forEach(cell => {
+      if (cell.dataset.filtered === 'true') return;
+
+      const isMutual = cell.textContent.includes('Follows you');
+      if (isMutual) {
+        cell.style.display = 'none';
+        cell.dataset.filtered = 'true';
+      }
+    });
+  };
+
+  // Run immediately
+  filterNonMutual();
+
+  // Keep filtering as you scroll (X loads more users dynamically)
+  const observer = new MutationObserver(filterNonMutual);
+  observer.observe(document.body, { childList: true, subtree: true });
+
+  // Optional: stop the filter later (type this in console if needed)
+  window.stopFilter = () => {
+    observer.disconnect();
+    document.querySelectorAll('[data-testid="UserCell"]').forEach(cell => {
+      cell.style.display = '';
+      delete cell.dataset.filtered;
+    });
+    console.log('Filter stopped and list restored.');
+  };
+
+  console.log('Scroll down — it will keep filtering automatically. Refresh page to reset.');
+})();
