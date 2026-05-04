@@ -1,12 +1,12 @@
 (function () {
   'use strict';
 
-  // Remove old UI
+  // Remove old search bar if exists
   document.getElementById('custom-x-follow-search')?.remove();
 
   const tablist = document.querySelector('div[role="tablist"]');
   if (!tablist) {
-    alert("❌ Open Followers / Following tab first.");
+    alert("❌ Make sure you're on the Following tab.");
     return;
   }
 
@@ -18,7 +18,7 @@
 
   const listContainer = firstUserCell.parentElement;
 
-  // ===== UI =====
+  // ===== CREATE SEARCH BAR =====
   const searchBar = document.createElement('div');
   searchBar.id = 'custom-x-follow-search';
   searchBar.style.cssText = `
@@ -55,7 +55,7 @@
   // ===== HELPERS =====
 
   function getDisplayName(cell) {
-    return cell.querySelector('div[dir="ltr"] span')?.innerText?.trim() || '';
+    return (cell.querySelector('span') || {}).innerText?.trim() || '';
   }
 
   function getHandle(cell) {
@@ -63,34 +63,27 @@
       .find(s => s.innerText?.startsWith('@'))?.innerText || '';
   }
 
-  // 🔥 IMPROVED BIO EXTRACTION
+  // 🔥 STRONG BIO EXTRACTION
   function getBio(cell) {
-    // Primary (works when bio is loaded)
-    const bioEl = cell.querySelector('[data-testid="UserDescription"]');
-    if (bioEl) {
-      return bioEl.innerText.trim();
+    // Try official bio container
+    const desc = cell.querySelector('[data-testid="UserDescription"]');
+    if (desc && desc.innerText.trim()) {
+      return desc.innerText.trim();
     }
 
-    // Secondary (some layouts)
-    const altBio = cell.querySelector('div[dir="auto"] span');
-    if (altBio && !altBio.innerText.includes('@')) {
-      return altBio.innerText.trim();
-    }
+    // Fallback: use full visible text
+    const fullText = cell.innerText;
 
-    // Fallback: extract safely
-    const text = cell.innerText || '';
-    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    const name = getDisplayName(cell);
+    const handle = getHandle(cell);
 
-    // Usually structure:
-    // [name, handle, bio?, "Follows you"?]
-    if (lines.length >= 3) {
-      return lines.slice(2).join(' ');
-    }
-
-    return '';
+    return fullText
+      .replace(name, '')
+      .replace(handle, '')
+      .replace('Follows you', '')
+      .trim();
   }
 
-  // ===== FILTER =====
   function filterUsers() {
     const term = searchTerm.toLowerCase();
 
@@ -98,6 +91,9 @@
       const name = getDisplayName(cell).toLowerCase();
       const handle = getHandle(cell).toLowerCase();
       const bio = getBio(cell).toLowerCase();
+
+      // DEBUG (uncomment if needed)
+      // console.log({ name, handle, bio });
 
       let matches = false;
 
@@ -111,21 +107,11 @@
     });
   }
 
-  // ===== DEBOUNCE =====
-  function debounce(fn, delay = 250) {
-    let t;
-    return (...args) => {
-      clearTimeout(t);
-      t = setTimeout(() => fn(...args), delay);
-    };
-  }
-
-  const debouncedFilter = debounce(filterUsers, 200);
-
   // ===== EVENTS =====
+
   input.addEventListener('input', e => {
     searchTerm = e.target.value.trim();
-    debouncedFilter();
+    filterUsers();
   });
 
   function updateToggle() {
@@ -158,27 +144,21 @@
 
   updateToggle();
 
-  // ===== AUTO LOAD MORE USERS =====
-  function autoScroll() {
-    window.scrollBy(0, 800);
-  }
+  // ===== HANDLE LAZY LOADING =====
 
-  const scrollInterval = setInterval(autoScroll, 1500);
-
-  // Stop auto scroll after some time
-  setTimeout(() => clearInterval(scrollInterval), 15000);
-
-  // ===== OBSERVER (optimized) =====
   const observer = new MutationObserver(() => {
-    if (searchTerm) debouncedFilter();
+    if (searchTerm) {
+      filterUsers();
+    }
   });
 
-  observer.observe(listContainer, {
+  observer.observe(document.body, {
     childList: true,
     subtree: true
   });
 
+  // Initial slight delay to allow DOM to settle
   setTimeout(filterUsers, 800);
 
-  console.log('%c✅ Advanced Search (Improved) Loaded!', 'color:#1d9bf0; font-weight:bold');
+  console.log('%c✅ Advanced Search Loaded!', 'color:#1d9bf0; font-size:14px; font-weight:bold');
 })();
