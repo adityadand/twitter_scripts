@@ -1,0 +1,126 @@
+(function () {
+  'use strict';
+
+  // Remove any old search bar
+  document.getElementById('custom-x-follow-search')?.remove();
+
+  const tablist = document.querySelector('div[role="tablist"]');
+  if (!tablist) {
+    alert("❌ Make sure you're on the Following tab and try again.");
+    return;
+  }
+
+  // === BETTER INSERTION: right before the first user row ===
+  const firstUserCell = document.querySelector('[data-testid="UserCell"]');
+  if (!firstUserCell) {
+    alert("❌ No users loaded yet. Scroll a bit and run again.");
+    return;
+  }
+
+  const listContainer = firstUserCell.parentElement;
+
+  // Create search bar element
+  const searchBar = document.createElement('div');
+  searchBar.id = 'custom-x-follow-search';
+  searchBar.style.cssText = `
+    padding: 16px 20px;
+    background: rgb(22, 24, 27);
+    border-bottom: 2px solid rgb(29, 155, 240);
+    position: sticky;
+    top: 0;
+    z-index: 9999;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    margin-bottom: 4px;
+  `;
+
+  searchBar.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 12px; max-width: 640px; margin: 0 auto;">
+      <div style="flex: 1; position: relative;">
+        <input id="custom-search-input" type="text" placeholder="Search by name or @handle..." 
+               style="width: 100%; padding: 12px 20px 12px 50px; border-radius: 9999px; border: 1px solid rgb(47,51,54); background: rgb(30,32,36); color: #e7e9ea; font-size: 15px; outline: none;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" style="position:absolute; left:18px; top:50%; transform:translateY(-50%); fill:#71767b;" viewBox="0 0 24 24">
+          <path d="M10 4a6 6 0 100 12 6 6 0 000-12zm-8 6a8 8 0 1114.32 4.906l5.387 5.387a1 1 0 01-1.414 1.414l-5.387-5.387A8 8 0 012 10z"/>
+        </svg>
+      </div>
+      
+      <div id="mode-toggle" style="display:flex; background:rgb(47,51,54); border-radius:9999px; padding:4px;">
+        <button id="name-btn" style="padding:9px 28px; border:none; border-radius:9999px; font-weight:700; font-size:14px; transition:all .2s;">Name</button>
+        <button id="bio-btn" style="padding:9px 28px; border:none; border-radius:9999px; font-weight:700; font-size:14px; background:transparent; color:#e7e9ea; transition:all .2s;">Bio</button>
+      </div>
+    </div>
+  `;
+
+  // Insert at the very top of the user list
+  listContainer.insertBefore(searchBar, firstUserCell);
+
+  // ====================== LOGIC ======================
+  let searchMode = 'name';
+  let searchTerm = '';
+
+  const input = document.getElementById('custom-search-input');
+  const nameBtn = document.getElementById('name-btn');
+  const bioBtn = document.getElementById('bio-btn');
+
+  function getDisplayName(cell) {
+    return (cell.querySelector('span') || {}).textContent?.trim() || '';
+  }
+  function getHandle(cell) {
+    return Array.from(cell.querySelectorAll('span')).find(s => s.textContent?.startsWith('@'))?.textContent?.trim() || '';
+  }
+  function getBio(cell) {
+    const spans = Array.from(cell.querySelectorAll('span[dir="auto"]'));
+    const handleIdx = spans.findIndex(s => s.textContent?.startsWith('@'));
+    if (handleIdx === -1) return '';
+    return spans.slice(handleIdx + 1).map(s => s.textContent).join(' ').trim();
+  }
+
+  function filterUsers() {
+    document.querySelectorAll('[data-testid="UserCell"]').forEach(cell => {
+      const name = getDisplayName(cell);
+      const handle = getHandle(cell);
+      const bio = getBio(cell);
+      const term = searchTerm.toLowerCase();
+
+      const matches = searchMode === 'name'
+        ? (name.toLowerCase().includes(term) || handle.toLowerCase().includes(term))
+        : bio.toLowerCase().includes(term);
+
+      cell.style.display = matches || !term ? '' : 'none';
+    });
+  }
+
+  input.addEventListener('input', e => {
+    searchTerm = e.target.value.trim();
+    filterUsers();
+  });
+
+  function updateToggle() {
+    if (searchMode === 'name') {
+      nameBtn.style.backgroundColor = '#1d9bf0';
+      nameBtn.style.color = '#fff';
+      bioBtn.style.backgroundColor = 'transparent';
+      bioBtn.style.color = '#e7e9ea';
+      input.placeholder = 'Search by name or @handle...';
+    } else {
+      bioBtn.style.backgroundColor = '#1d9bf0';
+      bioBtn.style.color = '#fff';
+      nameBtn.style.backgroundColor = 'transparent';
+      nameBtn.style.color = '#e7e9ea';
+      input.placeholder = 'Search inside bio text...';
+    }
+  }
+
+  nameBtn.addEventListener('click', () => { searchMode = 'name'; updateToggle(); filterUsers(); });
+  bioBtn.addEventListener('click', () => { searchMode = 'bio'; updateToggle(); filterUsers(); });
+
+  updateToggle();
+
+  // Auto-filter new users while scrolling
+  const observer = new MutationObserver(() => {
+    if (searchTerm) filterUsers();
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+
+  console.log('%c✅ Search bar inserted at the TOP of your list! (blue border)', 'color:#1d9bf0; font-size:16px; font-weight:bold');
+  console.log('👉 It should now be visible right under the tabs with a blue bottom border.');
+})();
