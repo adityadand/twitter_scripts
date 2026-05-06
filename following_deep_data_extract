@@ -1,0 +1,251 @@
+(async function () {
+
+    const wait = (ms) =>
+        new Promise(r => setTimeout(r, ms));
+
+    const users = new Map();
+
+    function extractUsers() {
+
+        const cells =
+            document.querySelectorAll(
+                '[data-testid="UserCell"]'
+            );
+
+        cells.forEach(cell => {
+
+            try {
+
+                // PROFILE LINK
+                const profileAnchor =
+                    [...cell.querySelectorAll('a')]
+                        .find(a => {
+
+                            try {
+
+                                const path =
+                                    new URL(a.href).pathname;
+
+                                return /^\/[^\/]+$/.test(path);
+
+                            } catch {
+
+                                return false;
+
+                            }
+
+                        });
+
+                if (!profileAnchor) return;
+
+                const username =
+                    profileAnchor.href
+                        .split("/")
+                        .pop();
+
+                // DISPLAY NAME
+                let displayName = "";
+
+                const nameSpan =
+                    cell.querySelector(
+                        'div[dir="ltr"] span'
+                    );
+
+                if (nameSpan) {
+                    displayName =
+                        nameSpan.innerText.trim();
+                }
+
+                // VERIFIED
+                const verified =
+                    cell.innerHTML.includes("icon-verified") ||
+                    cell.querySelector('[aria-label*="Verified"]') !== null;
+
+                // FOLLOWS YOU
+                const followsYou =
+                    cell.innerText.includes("Follows you");
+
+                // BIO
+                let bio = "";
+
+                const bioElement =
+                    cell.querySelector(
+                        '[data-testid="UserDescription"]'
+                    ) ||
+                    [...cell.querySelectorAll("span")]
+                        .find(span => {
+
+                            const txt =
+                                span.innerText?.trim();
+
+                            if (!txt) return false;
+
+                            if (txt.startsWith("@")) return false;
+                            if (txt === displayName) return false;
+                            if (txt === "Follow") return false;
+                            if (txt === "Following") return false;
+                            if (txt === "Follows you") return false;
+
+                            return txt.length > 8;
+
+                        });
+
+                if (bioElement) {
+                    bio =
+                        bioElement.innerText.trim();
+                }
+
+                // AVATAR
+                const avatar =
+                    cell.querySelector("img")?.src || "";
+
+                users.set(username, {
+
+                    username,
+                    displayName,
+                    bio,
+
+                    verified,
+                    followsYou,
+                    nonFollower: !followsYou,
+
+                    profileUrl:
+                        `https://x.com/${username}`,
+
+                    avatar
+
+                });
+
+            } catch (err) {
+
+                console.log(err);
+
+            }
+
+        });
+
+    }
+
+    async function autoScroll() {
+
+        let lastHeight = 0;
+        let sameCount = 0;
+
+        while (sameCount < 5) {
+
+            window.scrollTo(
+                0,
+                document.body.scrollHeight
+            );
+
+            await wait(2000);
+
+            extractUsers();
+
+            console.log(
+                `Collected: ${users.size}`
+            );
+
+            const newHeight =
+                document.body.scrollHeight;
+
+            if (newHeight === lastHeight) {
+                sameCount++;
+            } else {
+                sameCount = 0;
+            }
+
+            lastHeight = newHeight;
+        }
+
+    }
+
+    console.log(
+        "%cStarting extraction...",
+        "color:#1d9bf0;font-size:16px;font-weight:bold;"
+    );
+
+    extractUsers();
+
+    await autoScroll();
+
+    const data =
+        [...users.values()];
+
+    console.log(
+        "%cCreating Excel-compatible file...",
+        "color:lime;font-size:16px;font-weight:bold;"
+    );
+
+    // CSV HEADERS
+    const headers = [
+        "username",
+        "displayName",
+        "bio",
+        "verified",
+        "followsYou",
+        "nonFollower",
+        "profileUrl",
+        "avatar"
+    ];
+
+    // CSV ROWS
+    const rows = data.map(user =>
+
+        headers.map(header => {
+
+            const value =
+                user[header] ?? "";
+
+            return `"${String(value)
+                .replace(/"/g, '""')
+                .replace(/\n/g, ' ')}"`;
+
+        }).join(",")
+
+    );
+
+    // UTF-8 BOM FIX
+    const csvContent =
+        "\uFEFF" +
+        [
+            headers.join(","),
+            ...rows
+        ].join("\n");
+
+    // DOWNLOAD
+    const blob =
+        new Blob(
+            [csvContent],
+            {
+                type:
+                    "text/csv;charset=utf-8;"
+            }
+        );
+
+    const url =
+        URL.createObjectURL(blob);
+
+    const a =
+        document.createElement("a");
+
+    a.href = url;
+
+    // Excel opens this perfectly
+    a.download =
+        "x_following_analysis.csv";
+
+    document.body.appendChild(a);
+
+    a.click();
+
+    document.body.removeChild(a);
+
+    URL.revokeObjectURL(url);
+
+    console.log(
+        "%cExport Complete!",
+        "color:lime;font-size:18px;font-weight:bold;"
+    );
+
+})();
