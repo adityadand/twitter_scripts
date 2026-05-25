@@ -1,0 +1,68 @@
+// === X Comments/Replies Username Extractor (2026) ===
+async function extractXPostComments() {
+    console.log("%c🚀 Starting X Comments Extractor...", "color:#1DA1F2; font-size:16px; font-weight:bold");
+
+    const usernames = new Set();
+
+    // Main scroll container (works on post page)
+    const scrollContainer = document.querySelector('div[data-testid="primaryColumn"]') ||
+                           document.querySelector('main') ||
+                           document.documentElement;
+
+    console.log("📜 Scrolling and extracting reply usernames...");
+
+    let previousCount = 0;
+    let noNewCount = 0;
+    const maxNoNew = 12;   // stop after 12 attempts with no new usernames
+
+    while (noNewCount < maxNoNew) {
+        // Extract usernames from replies
+        document.querySelectorAll('article[role="article"]').forEach(article => {
+            const link = article.querySelector('a[href^="/"][role="link"]');
+            if (link) {
+                let href = link.getAttribute('href');
+                let username = href.split(/[/?#]/)[1];
+                
+                // Skip if it's the original post author or invalid
+                if (username && username.length > 1 && 
+                    !["home","explore","i","messages","notifications"].includes(username)) {
+                    usernames.add("@" + username);
+                }
+            }
+        });
+
+        const current = usernames.size;
+
+        if (current === previousCount) {
+            noNewCount++;
+        } else {
+            noNewCount = 0;
+            console.log(`📈 ${current} unique commenters found so far...`);
+        }
+
+        previousCount = current;
+
+        // Scroll down
+        scrollContainer.scrollTop = scrollContainer.scrollHeight + 3000;
+        await new Promise(r => setTimeout(r, 950));
+    }
+
+    const finalList = Array.from(usernames).sort();
+
+    console.log("%c✅ Extraction completed!", "color:green; font-size:15px");
+    console.log(`Total unique commenters: ${finalList.length}`);
+    console.log(finalList.join("\n"));
+
+    // Copy to clipboard
+    try {
+        await navigator.clipboard.writeText(finalList.join("\n"));
+        console.log("%c📋 Usernames copied to clipboard!", "color:#1DA1F2; font-weight:bold");
+    } catch(e) {
+        console.log("⚠️ Could not auto-copy. Copy the list above manually.");
+    }
+
+    return finalList;
+}
+
+// Run the script
+extractXPostComments();
