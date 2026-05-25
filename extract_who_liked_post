@@ -1,0 +1,85 @@
+// === X Likes Extractor v5 (Works on /likes page + modal) ===
+async function extractXPostLikers() {
+    console.log("%c🚀 X Likes Extractor v5 starting...", "color:#1DA1F2; font-size:16px; font-weight:bold");
+
+    const usernames = new Set();
+
+    // Detect modal or full Likes page
+    let scrollContainer = null;
+
+    // 1. Modal / Sheet detection
+    let modal = document.querySelector('div[role="dialog"]') ||
+                document.querySelector('[data-testid="sheetDialog"]') ||
+                document.querySelector('[aria-label*="Liked by"]');
+
+    if (modal) {
+        scrollContainer = modal.querySelector('div[style*="overflow"]') || modal;
+        console.log("✅ Modal detected");
+    } 
+    // 2. Full /likes page detection (you're here now)
+    else {
+        scrollContainer = document.querySelector('div[data-testid="primaryColumn"]') ||
+                         document.querySelector('main') ||
+                         document.documentElement;
+        console.log("✅ Full /likes page detected");
+    }
+
+    if (!scrollContainer) {
+        console.error("❌ Could not find scroll container");
+        return;
+    }
+
+    console.log("📜 Starting extraction and auto-scroll...");
+
+    let previousCount = 0;
+    let noNewCount = 0;
+    const maxNoNew = 12;
+
+    while (noNewCount < maxNoNew) {
+        // Extract usernames
+        document.querySelectorAll('[data-testid="UserCell"]').forEach(cell => {
+            const link = cell.querySelector('a[href^="/"][role="link"]') || cell.querySelector('a[href^="/"]');
+            if (link) {
+                let href = link.getAttribute('href');
+                let username = href.split(/[/?#]/)[1];   // improved parsing
+                if (username && username.length > 1 && !["home","explore","i","messages"].includes(username)) {
+                    usernames.add("@" + username);
+                }
+            }
+        });
+
+        const current = usernames.size;
+
+        if (current === previousCount) {
+            noNewCount++;
+        } else {
+            noNewCount = 0;
+            console.log(`📈 ${current} unique likers found so far...`);
+        }
+
+        previousCount = current;
+
+        // Scroll
+        scrollContainer.scrollTop = scrollContainer.scrollHeight + 4000;
+        await new Promise(r => setTimeout(r, 950));
+    }
+
+    const finalList = Array.from(usernames).sort();
+
+    console.log("%c✅ Extraction completed!", "color:green; font-size:15px");
+    console.log(`Total unique likers: ${finalList.length}`);
+    console.log(finalList.join("\n"));
+
+    // Copy to clipboard
+    try {
+        await navigator.clipboard.writeText(finalList.join("\n"));
+        console.log("%c📋 Copied to clipboard!", "color:#1DA1F2; font-weight:bold");
+    } catch(e) {
+        console.log("⚠️ Could not auto-copy. Copy the list above manually.");
+    }
+
+    return finalList;
+}
+
+// Run it
+extractXPostLikers();
